@@ -1,0 +1,29 @@
+name: Cek masa berlaku domain
+description: Baca tanggal kedaluwarsa domain .com dari RDAP; kabari grup kalau tinggal sedikit.
+inputs:
+  domain:
+    description: Domain .com yang diperiksa.
+    required: true
+  batas-hari:
+    description: Mulai dikabari kalau sisa hari kurang dari atau sama dengan ini.
+    required: false
+    default: "60"
+  uji:
+    description: true = cetak pesan pengingat tanpa mengirimnya, berapa pun sisa harinya.
+    required: false
+    default: "false"
+  webhook:
+    description: secrets.OPS_ALERT_WEBHOOK_URL.
+    required: false
+    default: ""
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        DOMAIN: ${{ inputs.domain }}
+        BATAS_HARI: ${{ inputs.batas-hari }}
+        UJI: ${{ inputs.uji }}
+        WEBHOOK: ${{ inputs.webhook }}
+        RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      run: node "$GITHUB_ACTION_PATH/main.mjs"

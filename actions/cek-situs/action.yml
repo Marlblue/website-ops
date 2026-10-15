@@ -1,0 +1,28 @@
+name: Cek situs hidup
+description: Pastikan halaman membalas HTTP 200 dan judulnya memuat nama situs; kabari grup kalau tidak.
+inputs:
+  url:
+    description: Alamat yang diperiksa, biasanya beranda.
+    required: true
+  penanda:
+    description: Teks yang harus ada di <title>, peka huruf besar-kecil (misalnya "Kalih Signature").
+    required: true
+  webhook:
+    description: secrets.OPS_ALERT_WEBHOOK_URL.
+    required: false
+    default: ""
+  label:
+    description: Awalan pesan ke grup, biasanya domain situs.
+    required: false
+    default: ""
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        URL: ${{ inputs.url }}
+        PENANDA: ${{ inputs.penanda }}
+        WEBHOOK: ${{ inputs.webhook }}
+        LABEL: ${{ inputs.label }}
+        RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      run: node "$GITHUB_ACTION_PATH/main.mjs"
