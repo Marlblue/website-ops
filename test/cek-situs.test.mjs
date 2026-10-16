@@ -31,6 +31,12 @@ describe("periksaSekali", () => {
     assert.equal(h.ok, false);
   });
 
+  it("mengenali halaman tantangan anti-bot hosting, bukan sebagai halaman parkir", async () => {
+    const h = await periksaSekali("https://nawwafresto.com/", "Nawwaf", { fetchImpl: halaman(200, "One moment, please...") });
+    assert.deepEqual([h.ok, h.tantangan], [false, true]);
+    assert.doesNotMatch(h.alasan, /halaman parkir/);
+  });
+
   it("menyebut kode status selain 200", async () => {
     const h = await periksaSekali("https://x.com/", "X", { fetchImpl: halaman(503, "X") });
     assert.deepEqual([h.ok, h.alasan], [false, "membalas HTTP 503"]);
@@ -59,5 +65,24 @@ describe("cekSitus", () => {
   it("melaporkan percobaan terakhir kalau semuanya gagal", async () => {
     const h = await cekSitus("https://x.com/", "X", { fetchImpl: halaman(500, "X"), ...tanpaTidur });
     assert.deepEqual([h.ok, h.percobaan, h.alasan], [false, 3, "membalas HTTP 500"]);
+  });
+
+  it("menandai tantangan hanya kalau semua percobaan tertahan", async () => {
+    const h = await cekSitus("https://x.com/", "X", { fetchImpl: halaman(200, "One moment, please..."), ...tanpaTidur });
+    assert.deepEqual([h.ok, h.tantangan, h.percobaan], [false, true, 3]);
+  });
+
+  it("kegagalan sungguhan menang atas halaman tantangan", async () => {
+    let n = 0;
+    const fetchImpl = async () => (++n === 2 ? new Response("", { status: 503 }) : halaman(200, "One moment, please...")());
+    const h = await cekSitus("https://x.com/", "X", { fetchImpl, ...tanpaTidur });
+    assert.deepEqual([h.ok, h.tantangan, h.alasan, h.percobaan], [false, undefined, "membalas HTTP 503", 3]);
+  });
+
+  it("lolos kalau tantangan cuma sesaat", async () => {
+    let n = 0;
+    const fetchImpl = async () => (++n === 1 ? halaman(200, "One moment, please...")() : new Response("<title>X</title>"));
+    const h = await cekSitus("https://x.com/", "X", { fetchImpl, ...tanpaTidur });
+    assert.deepEqual([h.ok, h.percobaan], [true, 2]);
   });
 });

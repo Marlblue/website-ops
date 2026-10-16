@@ -12,6 +12,13 @@ async function main() {
     return 0;
   }
 
+  if (hasil.tantangan) {
+    // Bukan alarm: situsnya mungkin sehat, cuma runner ini yang dicegat. Run berikutnya
+    // memeriksa lagi, dan kegagalan sungguhan tetap dikabari seperti biasa.
+    console.log(`::warning::${url} tidak bisa dipastikan dalam ${hasil.percobaan} percobaan: ${hasil.alasan}. Grup tidak dikabari.`);
+    return 0;
+  }
+
   const ringkas = `${url} gagal dalam ${hasil.percobaan} percobaan: ${hasil.alasan}.`;
   console.log(`::error::${ringkas}`);
   // Dikirim di setiap run yang gagal: pengingat berkala selama situs mati memang yang
