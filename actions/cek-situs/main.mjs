@@ -1,7 +1,8 @@
-import { cekSitus } from "../../lib/cek-situs.mjs";
+import { cekSitus, gagalJugaRunSebelumnya } from "../../lib/cek-situs.mjs";
 import { kabari } from "../../lib/kabari.mjs";
 
-const { URL: url, PENANDA, WEBHOOK = "", LABEL = "", RUN_URL = "" } = process.env;
+const { URL: url, PENANDA, WEBHOOK = "", LABEL = "", RUN_URL = "", TOKEN = "" } = process.env;
+const { GITHUB_API_URL, GITHUB_REPOSITORY, GITHUB_RUN_ID, GITHUB_JOB } = process.env;
 
 // exitCode, bukan process.exit(): keluar paksa saat koneksi fetch masih ditutup membuat
 // Node di Windows crash, dan di mana pun bisa memotong log yang belum tertulis.
@@ -21,6 +22,15 @@ async function main() {
 
   const ringkas = `${url} gagal dalam ${hasil.percobaan} percobaan: ${hasil.alasan}.`;
   console.log(`::error::${ringkas}`);
+
+  if (hasil.putus) {
+    const sebelumnya = await gagalJugaRunSebelumnya({ api: GITHUB_API_URL, repo: GITHUB_REPOSITORY, runId: GITHUB_RUN_ID, job: GITHUB_JOB, token: TOKEN });
+    if (sebelumnya === false) {
+      // Job tetap merah supaya run berikutnya tahu ini kegagalan kedua kalau terulang.
+      console.log("::warning::Run sebelumnya lolos, jadi kemungkinan cuma IP runner ini yang diblokir. Grup dikabari kalau run berikutnya juga gagal.");
+      return 1;
+    }
+  }
   // Dikirim di setiap run yang gagal: pengingat berkala selama situs mati memang yang
   // diinginkan, dan run terjadwal tidak saling mengingat.
   const kabar = await kabari(`SITUS BERMASALAH: ${ringkas} Detail: ${RUN_URL}`, { webhook: WEBHOOK, label: LABEL });

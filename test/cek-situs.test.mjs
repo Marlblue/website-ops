@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { cekSitus, judulHalaman, periksaSekali } from "../lib/cek-situs.mjs";
+import { cekSitus, gagalJugaRunSebelumnya, judulHalaman, periksaSekali } from "../lib/cek-situs.mjs";
 
 const halaman = (status, title) => async () => new Response(`<html><head><title>${title}</title></head><body>Kalih Signature</body></html>`, { status });
 const tanpaTidur = { tidur: async () => {} };
@@ -47,6 +47,13 @@ describe("periksaSekali", () => {
     assert.match(h.alasan, /tidak bisa dihubungi/);
   });
 
+  it("menandai putus dan menyebut kode galat dari err.cause", async () => {
+    const fetchImpl = async () => { throw new TypeError("fetch failed", { cause: Object.assign(new Error("x"), { code: "ECONNREFUSED" }) }); };
+    const h = await periksaSekali("https://x.com/", "X", { fetchImpl });
+    assert.equal(h.putus, true);
+    assert.match(h.alasan, /\(ECONNREFUSED\)/);
+  });
+
   it("menambahkan parameter acak supaya melewati cache proxy", async () => {
     let diminta;
     await periksaSekali("https://x.com/?a=1", "X", { fetchImpl: async (u) => { diminta = String(u); return new Response("<title>X</title>"); } });
@@ -84,5 +91,41 @@ describe("cekSitus", () => {
     const fetchImpl = async () => (++n === 1 ? halaman(200, "One moment, please...")() : new Response("<title>X</title>"));
     const h = await cekSitus("https://x.com/", "X", { fetchImpl, ...tanpaTidur });
     assert.deepEqual([h.ok, h.percobaan], [true, 2]);
+  });
+});
+
+describe("gagalJugaRunSebelumnya", () => {
+  // runs: [{ id, jobs: [{ name, conclusion }] }], terbaru dulu; run 99 adalah run yang sedang jalan.
+  const api = (runs) => async (url) => {
+    const u = String(url);
+    let isi;
+    if (u.endsWith("/actions/runs/99")) isi = { workflow_id: 7 };
+    else if (u.includes("/workflows/7/runs")) isi = { workflow_runs: runs.map(({ id }) => ({ id })) };
+    else isi = { jobs: runs.find((r) => u.endsWith(`/runs/${r.id}/jobs`)).jobs };
+    return Response.json(isi);
+  };
+  const tanya = (runs, lain = {}) => gagalJugaRunSebelumnya({ repo: "a/b", runId: 99, job: "situs", token: "t", fetchImpl: api(runs), ...lain });
+
+  it("false kalau job yang sama di run sebelumnya lolos", async () => {
+    assert.equal(await tanya([{ id: 5, jobs: [{ name: "situs", conclusion: "success" }] }]), false);
+  });
+
+  it("true kalau job yang sama di run sebelumnya gagal", async () => {
+    assert.equal(await tanya([{ id: 5, jobs: [{ name: "situs", conclusion: "failure" }] }]), true);
+  });
+
+  it("melewati run yang job-nya dilewati atau tidak ada, dan run yang sedang jalan", async () => {
+    const runs = [
+      { id: 99, jobs: [] },
+      { id: 6, jobs: [{ name: "situs", conclusion: "skipped" }, { name: "cron", conclusion: "success" }] },
+      { id: 5, jobs: [{ name: "situs", conclusion: "failure" }] },
+    ];
+    assert.equal(await tanya(runs), true);
+  });
+
+  it("null kalau tidak bisa dipastikan", async () => {
+    assert.equal(await tanya([]), null);
+    assert.equal(await tanya([], { token: "" }), null);
+    assert.equal(await tanya([], { fetchImpl: async () => new Response("", { status: 403 }) }), null);
   });
 });

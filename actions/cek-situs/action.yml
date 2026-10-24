@@ -15,6 +15,10 @@ inputs:
     description: Awalan pesan ke grup, biasanya domain situs.
     required: false
     default: ""
+  token:
+    description: Untuk membaca hasil run sebelumnya; workflow pemanggil butuh permissions actions read.
+    required: false
+    default: ${{ github.token }}
 runs:
   using: composite
   steps:
@@ -24,5 +28,6 @@ runs:
         PENANDA: ${{ inputs.penanda }}
         WEBHOOK: ${{ inputs.webhook }}
         LABEL: ${{ inputs.label }}
+        TOKEN: ${{ inputs.token }}
         RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
       run: node "$GITHUB_ACTION_PATH/main.mjs"
