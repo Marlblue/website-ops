@@ -1,0 +1,24 @@
+name: Cek link rusak
+description: Periksa link internal dan gambar di semua halaman sitemap; kabari grup kalau ada yang rusak.
+inputs:
+  sitemap:
+    description: Alamat sitemap, misalnya https://kalihcoffee.com/sitemap.xml.
+    required: true
+  webhook:
+    description: secrets.OPS_ALERT_WEBHOOK_URL.
+    required: false
+    default: ""
+  label:
+    description: Awalan pesan ke grup, biasanya domain situs.
+    required: false
+    default: ""
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        SITEMAP: ${{ inputs.sitemap }}
+        WEBHOOK: ${{ inputs.webhook }}
+        LABEL: ${{ inputs.label }}
+        RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      run: node "$GITHUB_ACTION_PATH/main.mjs"
